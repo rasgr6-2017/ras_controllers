@@ -3,11 +3,11 @@ project(ras_lab1_motor_controller)
 
 add_compile_options(-std=c++11)
 
-find_package(catkin REQUIRED COMPONENTS roscpp geometry_msgs)
+find_package(catkin REQUIRED COMPONENTS roscpp geometry_msgs std_msgs phidgets)
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp geometry_msgs
+  CATKIN_DEPENDS roscpp geometry_msgs std_msgs phidgets
 )
 
 include_directories(
