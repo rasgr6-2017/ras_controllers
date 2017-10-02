@@ -72,8 +72,8 @@ public:
 
         double e1 = w1_ref - w1;
         double e2 = w2_ref - w2;
-        ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
-        ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
+        //ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
+        //ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
 
         e1_sum += e1 * 1.0/(double)frequency;
         e2_sum += e2 * 1.0/(double)frequency;

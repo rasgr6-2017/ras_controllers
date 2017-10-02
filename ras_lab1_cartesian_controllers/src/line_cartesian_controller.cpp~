@@ -14,7 +14,7 @@ int main(int argc, char** argv)
     
     nh.getParam("linear_speed", linear_speed);
     nh.getParam("angular_speed", angular_speed);
-    ROS_INFO("%f", linear_speed);
+    ROS_INFO("%f", linear_speed)
     
     ros::Publisher twist_pub = nh.advertise<geometry_msgs::Twist>(twist_topic.c_str(), 1);
     
