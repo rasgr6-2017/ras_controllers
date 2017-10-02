@@ -23,9 +23,9 @@
     </node>
     
     <param name="encoder_res" type="double" value="900.0" />
-    <param name="kp_left" type="double" value="15.0" />
-    <param name="ki_left" type="double" value="0.0" />
-    <param name="kp_right" type="double" value="15.0" />
-    <param name="ki_right" type="double" value="0.0" />
+    <param name="kp_left" type="double" value="0.3" />
+    <param name="ki_left" type="double" value="0.1" />
+    <param name="kp_right" type="double" value="0.3" />
+    <param name="ki_right" type="double" value="0.1" />
     <param name="frequency" type="int" value="10" />
 </launch>

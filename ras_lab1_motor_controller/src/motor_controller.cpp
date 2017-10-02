@@ -10,6 +10,11 @@ double ki_left;
 double kp_right;
 double ki_right;
 int frequency;
+double prev_time = -1;
+double prev_left = 10;
+double prev_right = 10;
+int accumulated_left;
+int accumulated_right;
 
 class MotorController
 {
@@ -35,8 +40,8 @@ public:
     	nh.param("encoder_res", encoder_res, 0.0);
     	nh.param("frequency", frequency, 10);
     
-        encoder_left_sub = nh.subscribe("/motorcontrol/encoder_left", 1, &MotorController::EncoderLeftCallback, this);
-        encoder_right_sub = nh.subscribe("/motorcontrol/encoder_right", 1, &MotorController::EncoderRightCallback, this);
+        encoder_left_sub = nh.subscribe("/motorcontrol/encoder_left", 15, &MotorController::EncoderLeftCallback, this);
+        encoder_right_sub = nh.subscribe("/motorcontrol/encoder_right", 15, &MotorController::EncoderRightCallback, this);
 
         twist_sub = nh.subscribe("/motor_controller/twist", 1, &MotorController::TwistCallback, this);
 
@@ -47,11 +52,13 @@ public:
     void EncoderLeftCallback(const phidgets::motor_encoder::ConstPtr &msg)
     {
         encoder_left = *msg;
+        accumulated_left += encoder_left.count_change;
     }
 
     void EncoderRightCallback(const phidgets::motor_encoder::ConstPtr &msg)
     {
         encoder_right = *msg;
+        accumulated_right += encoder_right.count_change;
     }
 
     void TwistCallback(const geometry_msgs::Twist::ConstPtr &msg)
@@ -61,31 +68,54 @@ public:
 
     void UpdateMotorControl()
     {
+    	double delta_time;
+    	
+		ROS_INFO("accumulated %d", accumulated_left);
+    	
+    	if (prev_time < 0)
+    	{
+    		prev_time = ros::Time::now().toSec();
+    		delta_time = 1.0/30.0;
+    	}
+    	else{
+    		delta_time = ros::Time::now().toSec() - prev_time;
+    		prev_time = ros::Time::now().toSec();
+    	}
+    	
         double v = twist.linear.x;
         double w = twist.angular.z;
 
         double w1_ref = 0.5 * (2 * v + w * b) / r;
         double w2_ref = 0.5 * (2 * v - w * b) / r;
 
-        double w1 = -((double)(encoder_right.count_change)) * 2 * 3.1415 / encoder_res * frequency;
-        double w2 = ((double)(encoder_left.count_change)) * 2 * 3.1415 / encoder_res * frequency;
+        //double w1 = -((double)(encoder_right.count_change)) * 2 * 3.1415 / encoder_res * frequency;
+        //double w2 = ((double)(encoder_left.count_change)) * 2 * 3.1415 / encoder_res * frequency;
+        
+        double w1 = -((double)(accumulated_right)) * 2 * 3.14159 / (encoder_res * delta_time);
+        double w2 = ((double)(accumulated_left)) * 2 * 3.14159 / (encoder_res * delta_time);
+
+		ROS_INFO("delta time: %f, er: %d, el: %d", delta_time,encoder_right.count_change, encoder_left.count_change);
 
         double e1 = w1_ref - w1;
         double e2 = w2_ref - w2;
         ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
-        ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
+        //ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
 
-        e1_sum += e1 * 1.0/(double)frequency;
-        e2_sum += e2 * 1.0/(double)frequency;
+        e1_sum += e1 * delta_time;
+        e2_sum += e2 * delta_time;
 
-        double u1 = kp_right * e1 + ki_right * e1_sum;
-        double u2 = kp_left * e2 + ki_left * e2_sum;
+       	prev_right += kp_right * e1 + ki_right * e1_sum;
+        prev_left += kp_left * e2 + ki_left * e2_sum;
 
 		std_msgs::Float32 f1, f2;
-		f1.data = -(float)u1;
-		f2.data = (float)u2;
+		f1.data = -(float)prev_right;
+		f2.data = (float)prev_left;
         vel_right_pub.publish(f1);
         vel_left_pub.publish(f2);
+        ROS_INFO("f1 ref: %f, f2: %f", f1.data, f2.data);
+        
+        accumulated_left = 0;
+    	accumulated_right = 0;
     }
 };
 
