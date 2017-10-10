@@ -71,7 +71,7 @@ public:
     {
     	double delta_time;
     	
-		ROS_INFO("accumulated %d", accumulated_left);
+		//ROS_INFO("accumulated %d", accumulated_left);
     	
     	if (prev_time < 0)
     	{
@@ -99,8 +99,8 @@ public:
 
         double e1 = w1_ref - w1;
         double e2 = w2_ref - w2;
-        ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
-        ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
+        //ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
+        //ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
         //ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
 
         e1_sum += e1 * delta_time;
@@ -123,7 +123,7 @@ public:
 		f2.data = (float)prev_left;
         vel_right_pub.publish(f1);
         vel_left_pub.publish(f2);
-        ROS_INFO("f1: %f, f2: %f", f1.data, f2.data);
+        //ROS_INFO("f1: %f, f2: %f", f1.data, f2.data);
         
         accumulated_left = 0;
     	accumulated_right = 0;

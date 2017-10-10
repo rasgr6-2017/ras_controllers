@@ -1,0 +1,16 @@
+<launch>
+	<include file="$(find ras_lab1_cartesian_controllers)/launch/system.launch" />
+	
+	<node name="path_segment_controller" type="path_segment_controller" pkg="ras_path_segment_controller" output="screen"/>
+	
+	<node name="action_client" type="action_client" pkg="ras_path_segment_controller" output="screen"/>
+
+	<param name="server_frequency" type="int" value="10" />
+	<param name="v_max" type="double" value="0.4" />
+	<param name="w_max" type="double" value="0.4" />
+	<param name="kp_vw" type="double" value="30.0" />
+	<param name="e" type="double" value="0.1" />
+	<param name="x" type="double" value="1.0" />
+	<param name="y" type="double" value="1.0" />
+	<param name="theta" type="double" value="0.0" />
+</launch>

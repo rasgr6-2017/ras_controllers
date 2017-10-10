@@ -1,0 +1,9 @@
+<launch>
+
+ <include file="$(find rplidar_ros)/launch/rplidar.launch"/>
+ 
+ <include file="$(find visualize_model)/launch/visualize_model.launch"/>
+ 
+ <include file="$(find ras_lab1_cartesian_controllers)/launch/cartesian.launch"/>
+
+</launch>
