@@ -5,6 +5,7 @@
 #include <geometry_msgs/Twist.h>
 
 double encoder_res;
+double feedforward;
 double kp_left;
 double ki_left;
 double kp_right;
@@ -14,6 +15,8 @@ int frequency;
 double prev_time = -1;
 double prev_left = 0;
 double prev_right = 0;
+double w1_ref_prev = 0;
+double w2_ref_prev = 0;
 int accumulated_left;
 int accumulated_right;
 
@@ -34,6 +37,7 @@ public:
 
     MotorController()
     {
+    	nh.param("feedforward", feedforward, 0.0);
     	nh.param("kp_left", kp_left, 0.0);
     	nh.param("ki_left", ki_left, 0.0);
     	nh.param("kp_right", kp_right, 0.0);
@@ -88,6 +92,9 @@ public:
 
         double w1_ref = 0.5 * (2 * v + w * b) / r;
         double w2_ref = 0.5 * (2 * v - w * b) / r;
+        
+        double w1_ref_delta = w1_ref - w1_ref_prev;
+        double w2_ref_delta = w2_ref - w2_ref_prev;
 
         //double w1 = -((double)(encoder_right.count_change)) * 2 * 3.1415 / encoder_res * frequency;
         //double w2 = ((double)(encoder_left.count_change)) * 2 * 3.1415 / encoder_res * frequency;
@@ -99,16 +106,21 @@ public:
 
         double e1 = w1_ref - w1;
         double e2 = w2_ref - w2;
-        //ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
+        ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
+        ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
         //ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
-        //ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
+        
+        w1_ref_prev = w1_ref;
+        w2_ref_prev = w2_ref;
 
         e1_sum += e1 * delta_time;
         e2_sum += e2 * delta_time;
 
 		double acc1, acc2;
-		acc1 = kp_right * e1 + ki_right * e1_sum;
-		acc2 = kp_left * e2 + ki_left * e2_sum;
+		acc1 = kp_right * e1 + ki_right * e1_sum + w1_ref_delta * feedforward;
+		acc2 = kp_left * e2 + ki_left * e2_sum + w2_ref_delta * feedforward;
+		// acc1 = kp_right * e1 + ki_right * e1_sum;
+		// acc2 = kp_left * e2 + ki_left * e2_sum;
 
        	prev_right += acc1;
         prev_left += acc2;
