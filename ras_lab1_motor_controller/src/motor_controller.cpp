@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/Float32MultiArray.h>
 #include <phidgets/motor_encoder.h>
 #include <motor_controller.h>
 #include <geometry_msgs/Twist.h>
@@ -10,7 +11,8 @@ double kp_left;
 double ki_left;
 double kp_right;
 double ki_right;
-double dead_region = 8.0;
+double dead_region_right = 9.0;
+double dead_region_left = 8.0;
 int frequency;
 double prev_time = -1;
 double prev_left = 0;
@@ -31,9 +33,13 @@ public:
     ros::NodeHandle nh;
     ros::Subscriber encoder_left_sub, encoder_right_sub, twist_sub;
     ros::Publisher vel_left_pub, vel_right_pub;
+    ros::Publisher control_signal_packup;
 
     geometry_msgs::Twist twist;
     phidgets::motor_encoder encoder_left, encoder_right;
+    
+    std_msgs::Float32MultiArray signal_packup;
+    bool init_array = true;
 
     MotorController()
     {
@@ -52,6 +58,7 @@ public:
 
         vel_right_pub = nh.advertise<std_msgs::Float32>("/motorcontrol/cmd_vel_right", 1);
         vel_left_pub = nh.advertise<std_msgs::Float32>("/motorcontrol/cmd_vel_left", 1);
+        control_signal_packup = nh.advertise<std_msgs::Float32MultiArray>("/motorcontrol/signal_packup", 1);
     }
     
     void EncoderLeftCallback(const phidgets::motor_encoder::ConstPtr &msg)
@@ -73,6 +80,18 @@ public:
 
     void UpdateMotorControl()
     {
+    	if(init_array)
+    	{
+    		// set up dimensions
+			signal_packup.layout.dim.push_back(std_msgs::MultiArrayDimension());
+			signal_packup.layout.dim[0].size = 6;
+			signal_packup.layout.dim[0].stride = 1;
+			signal_packup.layout.dim[0].label = "signals"; // or whatever name you typically use to index vec1
+   			init_array = false;
+    	}
+
+		signal_packup.data.clear();
+
     	double delta_time;
     	
 		//ROS_INFO("accumulated %d", accumulated_left);
@@ -101,13 +120,19 @@ public:
         
         double w1 = -((double)(accumulated_right)) * 2 * 3.14159 / (encoder_res * delta_time);
         double w2 = ((double)(accumulated_left)) * 2 * 3.14159 / (encoder_res * delta_time);
-
+       
 		//ROS_INFO("delta time: %f, er: %d, el: %d", delta_time,encoder_right.count_change, encoder_left.count_change);
 
         double e1 = w1_ref - w1;
         double e2 = w2_ref - w2;
-        ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
-        ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
+        
+        signal_packup.data.push_back(w1);
+        signal_packup.data.push_back(w2);
+        signal_packup.data.push_back(w1_ref);
+        signal_packup.data.push_back(w2_ref);
+        
+        // ROS_INFO("w1 ref: %f, w1: %f", w1_ref, w1);
+        // ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
         //ROS_INFO("w2 ref: %f, w2: %f", w2_ref, w2);
         
         w1_ref_prev = w1_ref;
@@ -117,24 +142,59 @@ public:
         e2_sum += e2 * delta_time;
 
 		double acc1, acc2;
-		acc1 = kp_right * e1 + ki_right * e1_sum + w1_ref_delta * feedforward;
-		acc2 = kp_left * e2 + ki_left * e2_sum + w2_ref_delta * feedforward;
-		// acc1 = kp_right * e1 + ki_right * e1_sum;
-		// acc2 = kp_left * e2 + ki_left * e2_sum;
-
-       	prev_right += acc1;
+		// acc1 = kp_right * e1 + ki_right * e1_sum + w1_ref_delta * feedforward;
+		// acc2 = kp_left * e2 + ki_left * e2_sum + w2_ref_delta * feedforward;
+		acc1 = kp_right * e1 + ki_right * e1_sum;
+		acc2 = kp_left * e2 + ki_left * e2_sum;
+        
+        // at the beginning of everthing 
+        if ( (w1_ref > 0.1 || w1_ref < -0.1) && (prev_right < 0.1 && prev_right > -0.1) )
+        { 
+          if (acc1 > 0)
+          {
+          	prev_right = 20;
+          } 
+          if (acc1 < 0)
+          {
+          	prev_right = -20;
+          }
+          ROS_INFO("setting init");
+          }
+        if ( (w2_ref > 0.1 || w2_ref < -0.1) && (prev_left < 0.1 && prev_left > -0.1) )
+        { 
+          if (acc2 > 0)
+          {
+          	prev_left = 15;
+          } 
+          if (acc2 < 0)
+          {
+          	prev_left = -15;
+          }
+          ROS_INFO("setting init");
+        }
+        
+        prev_right += acc1;
         prev_left += acc2;
         
-        if ( w1_ref < 0.01 && w1_ref > -0.01 && prev_right < dead_region && prev_right > -dead_region)
-        { prev_right = 0.0;}
-        if ( w2_ref < 0.01 && w2_ref > -0.01 && prev_left < dead_region && prev_left > -dead_region)
-        { prev_left = 0.0;}
+        // to make robot stop immediately
+        if ( w1_ref < 0.01 && w1_ref > -0.01 && prev_right < dead_region_right && prev_right > -dead_region_right)
+        { prev_right = 0.0;
+        }
+        if ( w2_ref < 0.01 && w2_ref > -0.01 && prev_left < dead_region_left && prev_left > -dead_region_left)
+        { prev_left = 0.0;
+          }
 
 		std_msgs::Float32 f1, f2;
 		f1.data = -(float)prev_right;
 		f2.data = (float)prev_left;
         vel_right_pub.publish(f1);
         vel_left_pub.publish(f2);
+        
+        signal_packup.data.push_back((float)prev_right);
+        signal_packup.data.push_back((float)prev_left);
+        
+ 		control_signal_packup.publish(signal_packup);       
+ 			
         //ROS_INFO("f1: %f, f2: %f", f1.data, f2.data);
         
         accumulated_left = 0;
@@ -154,6 +214,7 @@ int main(int argc, char** argv)
         ros::spinOnce();
         loop_rate.sleep();
     }
+    
 
     return 0;
 }
